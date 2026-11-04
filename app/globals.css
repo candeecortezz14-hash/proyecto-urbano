@@ -1,4 +1,3 @@
-
 /* Concepto: sitio de cine en negro y dorado, con una cadenita de luz neón en la portada y un panel admin que reparte los módulos por color. */
 :root{
   --bg:#0a0a0a; --ink:#f6f2e6; --muted:#8e8a7d; --surface:#141413; --surface2:#1c1b19; --line:#2b2a27;
@@ -288,3 +287,5 @@ body{margin:0}
 .err{color:#ff8f8f;font-size:.92rem;margin:0}
 .adsense{min-height:90px;display:block}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.yt{position:relative;width:100%;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:#000;margin-bottom:24px;border:1px solid var(--goldline)}
+.yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
