@@ -4,7 +4,7 @@ import JsonLd from '@/components/JsonLd';
 import { Card, AdSlot } from '@/components/Cards';
 import { Crumbs } from '@/components/Blocks';
 import { getItems, ofType, toCard, toAd, activeAds, thumbOf } from '@/lib/data';
-import { paragraphs, ytId, safeUrl } from '@/lib/util';
+import { paragraphs, ytId, safeUrl, isFileVideo } from '@/lib/util';
 import { SITE_URL } from '@/lib/env';
 
 export const revalidate = 60;
@@ -34,12 +34,13 @@ export default async function Page({ params }) {
   if (!item) notFound();
   const id = ytId(item.url);
   const link = safeUrl(item.url);
+  const own = !id && isFileVideo(link);
   const img = thumbOf(item);
   const related = ofType(items, 'video').filter((i) => i.id !== item.id).slice(0, 3).map(toCard);
   const ad = activeAds(items, 'feed').map(toAd)[0];
   return (
     <main className="wrap">
-      {id ? (
+      {id || own ? (
         <JsonLd
           data={{
             '@context': 'https://schema.org',
@@ -48,7 +49,7 @@ export default async function Page({ params }) {
             description: String(item.body || item.title).slice(0, 300),
             thumbnailUrl: img ? [img] : undefined,
             uploadDate: item.created_at || undefined,
-            embedUrl: `https://www.youtube-nocookie.com/embed/${id}`,
+            ...(id ? { embedUrl: `https://www.youtube-nocookie.com/embed/${id}` } : { contentUrl: link }),
             url: `${SITE_URL}/videos/${slug}`,
           }}
         />
@@ -69,6 +70,12 @@ export default async function Page({ params }) {
               allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
               allowFullScreen
             />
+          </div>
+        ) : own ? (
+          <div className="yt">
+            <video controls playsInline preload="metadata" poster={img || undefined} src={link} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: '#000' }}>
+              Tu navegador no puede reproducir este video.
+            </video>
           </div>
         ) : link ? (
           <p>
