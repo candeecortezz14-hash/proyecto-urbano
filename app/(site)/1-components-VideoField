@@ -1,0 +1,96 @@
+'use client';
+
+import { useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { prepareVideoUpload } from '@/app/admin/actions';
+import { SUPABASE_URL, SUPABASE_KEY } from '@/lib/env';
+
+const MAX_MB = 50; // límite del plan gratuito de Supabase por archivo
+const OK = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'];
+
+export default function VideoField({ name, initial, onBusy }) {
+  const [url, setUrl] = useState(initial || '');
+  const [state, setState] = useState('idle'); // idle | up | done | err
+  const [msg, setMsg] = useState('');
+
+  const isOwn = /\/storage\/v1\/object\/public\/media\/videos\//.test(url);
+
+  async function onFile(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+    if (!OK.includes(file.type) && !['mp4', 'webm', 'mov', 'm4v'].includes(ext)) {
+      setState('err');
+      setMsg('Formato no válido. Subí un video MP4, MOV o WEBM.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setState('err');
+      setMsg(`El video pesa ${(file.size / 1048576).toFixed(0)} MB y el máximo es ${MAX_MB} MB. Comprimilo o publicalo en YouTube y pegá el enlace.`);
+      e.target.value = '';
+      return;
+    }
+    setState('up');
+    setMsg('Subiendo… no cierres ni cambies de página hasta que termine.');
+    onBusy && onBusy(true);
+    try {
+      const prep = await prepareVideoUpload(ext);
+      if (prep.error) throw new Error(prep.error);
+      const sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { error } = await sb.storage.from('media').uploadToSignedUrl(prep.path, prep.token, file, {
+        contentType: file.type || 'video/mp4',
+        cacheControl: '31536000',
+      });
+      if (error) throw new Error(error.message);
+      setUrl(prep.publicUrl);
+      setState('done');
+      setMsg('Video subido. Ya podés guardar.');
+    } catch (err) {
+      setState('err');
+      setMsg(`No se pudo subir el video: ${err.message}`);
+    } finally {
+      onBusy && onBusy(false);
+      e.target.value = '';
+    }
+  }
+
+  return (
+    <div className="fld">
+      <label htmlFor="f-url">Video</label>
+      <input type="hidden" name={name} value={url} />
+      <p style={{ margin: '4px 0', fontWeight: 700 }}>Opción 1: enlace de YouTube</p>
+      <input
+        className="inp"
+        id="f-url"
+        type="url"
+        placeholder="https://www.youtube.com/watch?v=..."
+        value={isOwn ? '' : url}
+        onChange={(e) => {
+          setUrl(e.target.value);
+          setState('idle');
+          setMsg('');
+        }}
+        disabled={state === 'up'}
+      />
+      <p style={{ margin: '12px 0 4px', fontWeight: 700 }}>Opción 2: subir tu propio video</p>
+      <input className="inp" type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.webm,.m4v" onChange={onFile} disabled={state === 'up'} />
+      {isOwn ? (
+        <div style={{ marginTop: 8 }}>
+          <video src={url} controls preload="metadata" style={{ width: '100%', maxHeight: 260, borderRadius: 12, background: '#000' }} />
+          <button type="button" className="btn btn-sm" onClick={() => { setUrl(''); setState('idle'); setMsg(''); }}>
+            Quitar video
+          </button>
+        </div>
+      ) : null}
+      {msg ? (
+        <small role="status" style={{ color: state === 'err' ? 'var(--danger, #ff6b6b)' : 'var(--muted)', display: 'block', marginTop: 6 }}>
+          {msg}
+        </small>
+      ) : null}
+      <small style={{ color: 'var(--muted)', display: 'block', marginTop: 6 }}>
+        Si ponés un enlace de YouTube, el video se reproduce dentro de tu sitio. Si subís el tuyo, pesa como máximo {MAX_MB} MB (formato MP4 recomendado).
+      </small>
+    </div>
+  );
+}
