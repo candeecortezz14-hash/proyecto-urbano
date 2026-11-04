@@ -1,10 +1,11 @@
 'use client';
 
-import { startTransition, useActionState } from 'react';
+import { startTransition, useActionState, useState } from 'react';
 import Link from 'next/link';
 import { saveItem } from '@/app/admin/actions';
 import { FIELDS, TYPE_LABEL } from '@/lib/fields';
 import ImageField from './ImageField';
+import VideoField from './VideoField';
 
 function initial(f, item, today) {
   if (item) {
@@ -19,6 +20,7 @@ function initial(f, item, today) {
 export default function ItemForm({ type, mod, item, today }) {
   const [state, formAction, pending] = useActionState(saveItem, {});
   const fields = FIELDS[type];
+  const [busy, setBusy] = useState(false);
 
   function onSubmit(e) {
     e.preventDefault();
@@ -40,6 +42,7 @@ export default function ItemForm({ type, mod, item, today }) {
         const id = `f-${f.key}`;
         if (f.kind === 'image') return <ImageField key={f.key} field={f} current={item ? item.image_url : ''} />;
         const dv = initial(f, item, today);
+        if (f.kind === 'videourl') return <VideoField key={f.key} name={f.key} initial={dv} onBusy={setBusy} />;
         return (
           <div className="fld" key={f.key}>
             <label htmlFor={id}>
@@ -72,8 +75,8 @@ export default function ItemForm({ type, mod, item, today }) {
         );
       })}
       <div className="acts">
-        <button className="btn btn-gold" type="submit" disabled={pending}>
-          {pending ? 'Guardando…' : `Guardar ${TYPE_LABEL[type].toLowerCase()}`}
+        <button className="btn btn-gold" type="submit" disabled={pending || busy}>
+          {busy ? 'Subiendo video…' : pending ? 'Guardando…' : `Guardar ${TYPE_LABEL[type].toLowerCase()}`}
         </button>
         <Link className="btn" href={`/admin/${mod}`}>
           Cancelar
