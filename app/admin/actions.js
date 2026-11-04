@@ -61,7 +61,7 @@ export async function saveItem(prev, formData) {
     if (f.kind === 'image') continue;
     let v = values[f.key].trim();
     if (f.required && !v) return { error: `Falta completar: ${f.label}.`, values };
-    if (f.kind === 'url') {
+    if (f.kind === 'url' || f.kind === 'videourl') {
       if (v && !safeUrl(v)) return { error: 'El enlace tiene que empezar con https://', values };
       rec[f.key] = v || null;
     } else if (f.kind === 'rating') {
@@ -110,6 +110,16 @@ export async function saveItem(prev, formData) {
 
   refresh();
   redirect(`/admin/${mod}?ok=1`);
+}
+
+// Prepara la subida directa de un video a Supabase (los videos pesan demasiado para pasar por el servidor).
+export async function prepareVideoUpload(ext) {
+  const { sb } = await requireAdmin();
+  const e = ['mp4', 'webm', 'mov', 'm4v'].includes(String(ext).toLowerCase()) ? String(ext).toLowerCase() : 'mp4';
+  const path = `videos/${crypto.randomUUID()}.${e}`;
+  const { data, error } = await sb.storage.from('media').createSignedUploadUrl(path);
+  if (error || !data) return { error: `No se pudo preparar la subida: ${error ? error.message : 'sin respuesta'}` };
+  return { path, token: data.token, publicUrl: `${SUPABASE_URL}/storage/v1/object/public/media/${path}` };
 }
 
 export async function deleteItem(formData) {
