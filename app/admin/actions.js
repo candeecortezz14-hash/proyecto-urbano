@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/auth';
 import { supabaseServer } from '@/lib/supabase';
 import { FIELDS } from '@/lib/fields';
 import { MODS } from '@/lib/mods';
-import { ADMIN_EMAIL, SUPABASE_URL } from '@/lib/env';
+import { isAdminEmail, SUPABASE_URL } from '@/lib/env';
 import { safeUrl, slugify, todayISO } from '@/lib/util';
 
 const MAX_IMG = 6 * 1024 * 1024;
@@ -22,7 +22,7 @@ export async function signIn(formData) {
   const sb = await supabaseServer();
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error || !data || !data.user) redirect('/admin/login?error=1');
-  if (ADMIN_EMAIL && String(data.user.email || '').toLowerCase() !== ADMIN_EMAIL) {
+  if (!isAdminEmail(data.user.email)) {
     await sb.auth.signOut();
     redirect('/admin/login?error=2');
   }
